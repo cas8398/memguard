@@ -10,3 +10,6 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+
+  memguard:
+    path: ../
