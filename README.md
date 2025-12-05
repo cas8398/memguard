@@ -4,7 +4,7 @@
 ![iOS](https://img.shields.io/badge/iOS-Not%20Tested-lightgrey)
 ![Windows](https://img.shields.io/badge/Windows-Not%20Tested-lightgrey)
 ![macOS](https://img.shields.io/badge/macOS-Not%20Tested-lightgrey)
-![Linux](https://img.shields.io/badge/Linux-Not%20Tested-lightgrey)
+![Linux](https://img.shields.io/badge/Linux-Supported-brightgreen)
 
 **Hybrid secure storage for Flutter with zero-leak memory protection and hardware-backed encryption.**
 
@@ -73,7 +73,7 @@ MemGuard combines **ultra-fast Rust FFI memory storage** with **hardware-backed 
 
 ```yaml
 dependencies:
-  memguard: ^1.0.0
+  memguard: ^2.1.4
 ```
 
 ### Basic Usage
@@ -452,18 +452,33 @@ Common errors:
 
 ## 📱 Platform Support
 
-| Platform | Memory Storage | Device Secure | Status           |
-| -------- | -------------- | ------------- | ---------------- |
-| Android  | ✅ Full        | ✅ Full       | Production Ready |
-| iOS      | ⚠️ Untested    | ⚠️ Untested   | Needs Testing    |
-| Windows  | ⚠️ Untested    | ⚠️ Untested   | Needs Testing    |
-| macOS    | ⚠️ Untested    | ⚠️ Untested   | Needs Testing    |
-| Linux    | ⚠️ Untested    | ⚠️ Untested   | Needs Testing    |
+| Platform | Memory Storage | Device Secure    | Status        |
+| -------- | -------------- | ---------------- | ------------- |
+| Android  | ✅ Full        | ✅ Full          | Tested ✅     |
+| iOS      | ⚠️ Untested    | ⚠️ Untested      | Needs Testing |
+| Windows  | ⚠️ Untested    | ⚠️ Untested      | Needs Testing |
+| macOS    | ⚠️ Untested    | ⚠️ Untested      | Needs Testing |
+| Linux    | ✅ Full        | ❌ Not Available | Tested ✅     |
 
 ### Android Requirements
 
 - **Minimum**: API 23 (Android 6.0 Marshmallow)
 - **Recommended**: API 28+ (Android 9.0 Pie) for StrongBox support
+
+## 🐧 Linux Compatibility
+
+### ✅ Supported
+
+- Ubuntu 20.04+ ✅ (22.04 tested)
+- Debian 11+ ✅
+- Fedora 34+ ✅
+- Arch Linux ✅
+- Manjaro ✅
+- Pop!\_OS 20.04+ ✅
+- Linux Mint 20+ ✅
+- Elementary OS 6+ ✅
+
+> Requires **glibc 2.31+** and **64-bit (x86_64)**.
 
 ---
 
@@ -552,18 +567,10 @@ For high-security applications, combine MemGuard with additional layers of prote
 ## 📚 Related Projects
 
 - [MemGuard Core](https://github.com/cas8398/memguard_core) - Native Rust + Kotlin foundation
-- [flutter_secure_storage](https://pub.dev/packages/flutter_secure_storage) - Alternative secure storage (single mode)
-- [flutter_keychain](https://pub.dev/packages/flutter_keychain) - Platform keychain access
 
 ---
 
 ## 💬 Support
 
-- 📖 [Documentation](https://memguard.dev/docs)
-- 💡 [Examples](https://github.com/yourusername/memguard/tree/main/example)
 - 🐛 [Issue Tracker](https://github.com/cas8398/memguard/issues)
 - 💬 [Discussions](https://github.com/cas8398/memguard/discussions)
-
----
-
-**Made with 🛡️ by Cahyanudien Aziz Saputra**

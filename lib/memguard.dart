@@ -4,11 +4,14 @@ library memguard;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'src/logger.dart';
+import 'src/verify.dart';
 import 'package:flutter_fastlog/flutter_fastlog.dart';
 
 /// 🗃️ Storage Types
@@ -130,12 +133,12 @@ class MemGuardCore {
   MemGuardCore._();
 
   /// 🚀 Initialize Rust FFI (Memory storage only)
-  void initRust({
+  Future<void> initRust({
     required bool enableEncryptionMemory,
     required bool autoCleanupMemory,
     required Duration cleanupIntervalMemory,
     bool showLog = false,
-  }) {
+  }) async {
     try {
       _showLog = showLog;
       _currentStorageType = StorageType.memory;
@@ -146,7 +149,7 @@ class MemGuardCore {
       }
 
       // Load Rust library
-      _loadRustLibrary();
+      await _loadRustLibrary();
 
       if (_rustLib == null) {
         throw Exception('Failed to load Rust library');
@@ -533,6 +536,14 @@ class MemGuardCore {
   // =============== PLATFORM METHODS ===============
   Future<String?> _retrievePlatform(String key) async {
     try {
+      if (!Platform.isAndroid) {
+        if (_showLog) {
+          FastLog.w(
+              '⚠️ Device Secure unavailable on this platform (Android only): $key');
+        }
+        return null;
+      }
+
       // First try to load from Rust (in-memory cache)
       final memoryData = await _retrieveRust(key);
       if (memoryData != null) {
@@ -567,6 +578,14 @@ class MemGuardCore {
 
   Future<void> _storePlatform(String key, String value) async {
     try {
+      if (!Platform.isAndroid) {
+        if (_showLog) {
+          FastLog.w(
+              '⚠️ Device Secure unavailable on this platform (Android only): $key');
+        }
+        return null;
+      }
+
       final result = await _platformChannel.invokeMethod('store', {
         'storageType': _storageTypeToString(_currentStorageType!),
         'key': key,
@@ -589,6 +608,14 @@ class MemGuardCore {
 
   Future<void> _deletePlatform(String key) async {
     try {
+      if (!Platform.isAndroid) {
+        if (_showLog) {
+          FastLog.w(
+              '⚠️ Device Secure unavailable on this platform (Android only): $key');
+        }
+        return null;
+      }
+
       final result = await _platformChannel.invokeMethod('delete', {
         'storageType': _storageTypeToString(_currentStorageType!),
         'key': key,
@@ -608,6 +635,14 @@ class MemGuardCore {
 
   Future<bool> _containsPlatform(String key) async {
     try {
+      if (!Platform.isAndroid) {
+        if (_showLog) {
+          FastLog.w(
+              '⚠️ Device Secure unavailable on this platform (Android only): $key');
+        }
+        return false;
+      }
+
       final result = await _platformChannel.invokeMethod('contains', {
         'storageType': _storageTypeToString(_currentStorageType!),
         'key': key,
@@ -630,6 +665,14 @@ class MemGuardCore {
 
   Future<Map<String, dynamic>> _getStatsPlatform() async {
     try {
+      if (!Platform.isAndroid) {
+        if (_showLog) {
+          FastLog.w(
+              '⚠️ Device Secure unavailable on this platform (Android only)');
+        }
+        return {};
+      }
+
       final result = await _platformChannel.invokeMethod('getStats', {
         'storageType': _storageTypeToString(_currentStorageType!),
       });
@@ -670,6 +713,14 @@ class MemGuardCore {
 
   void _cleanupPlatform() {
     try {
+      if (!Platform.isAndroid) {
+        if (_showLog) {
+          FastLog.w(
+              '⚠️ Device Secure unavailable on this platform (Android only)');
+        }
+        return;
+      }
+
       _platformChannel.invokeMethod('cleanupAll', {
         'storageType': _storageTypeToString(_currentStorageType!),
       });
@@ -679,10 +730,16 @@ class MemGuardCore {
   }
 
   // =============== UTILITY METHODS ===============
-  void _loadRustLibrary() {
+  Future<void> _loadRustLibrary() async {
     try {
       if (defaultTargetPlatform == TargetPlatform.android) {
         _rustLib = DynamicLibrary.open('libmemguard_ffi.so');
+      } else if (Platform.isLinux) {
+        _rustLib = await _loadLinuxLibrary();
+      } else if (Platform.isWindows) {
+        throw UnsupportedError('Windows not yet supported');
+      } else if (Platform.isMacOS || Platform.isIOS) {
+        throw UnsupportedError('macOS/iOS not yet supported');
       } else {
         throw Exception('Platform not supported: $defaultTargetPlatform');
       }
@@ -701,6 +758,97 @@ class MemGuardCore {
       }
       rethrow;
     }
+  }
+
+  Future<DynamicLibrary> _loadLinuxLibrary() async {
+    final secureDir = await _getSecureCacheDirectory();
+    final soFile = File('${secureDir.path}/libmemguard_ffi.so');
+
+    if (!await soFile.exists()) {
+      final data = await rootBundle
+          .load('packages/memguard_core/lib/linux/libmemguard_ffi.so');
+
+      final tmp = File('${soFile.path}.tmp');
+
+      // Atomic write
+      await tmp.writeAsBytes(
+        data.buffer.asUint8List(),
+        flush: true,
+      );
+
+      // Verify integrity BEFORE install
+      await verifySha256_linux(tmp);
+
+      // Move into place
+      await tmp.rename(soFile.path);
+
+      // Lock permissions (optional but fine)
+      final chmod = await Process.run('chmod', ['600', soFile.path]);
+      if (chmod.exitCode != 0) {
+        throw Exception('chmod failed: ${chmod.stderr}');
+      }
+    }
+
+    // Optional permission check (best effort)
+    final stat = await Process.run('stat', ['-c', '%a', soFile.path]);
+    if (stat.exitCode != 0 || stat.stdout.toString().trim() != '600') {
+      throw Exception('Insecure file permissions or stat failed');
+    }
+
+    try {
+      return DynamicLibrary.open(soFile.path);
+    } catch (e) {
+      throw Exception('Failed to load native shared library: $e');
+    }
+  }
+
+  Future<Directory> _getSecureCacheDirectory() async {
+    final xdgRuntime = Platform.environment['XDG_RUNTIME_DIR'];
+
+    if (xdgRuntime != null) {
+      final base = Directory(xdgRuntime);
+
+      if (await base.exists()) {
+        final dir = Directory('${base.path}/memguard');
+        await dir.create(recursive: true);
+
+        final resolved = await dir.resolveSymbolicLinks();
+        if (!resolved.startsWith(base.path)) {
+          throw Exception('Symlink attack detected');
+        }
+
+        final chmod = await Process.run('chmod', ['700', dir.path]);
+        if (chmod.exitCode != 0) {
+          throw Exception('chmod failed: ${chmod.stderr}');
+        }
+
+        if (_showLog) {
+          FastLog.i('📚 Linux Directory using: XDG_RUNTIME_DIR');
+        }
+
+        return dir;
+      }
+    }
+
+    final cacheDir = await getApplicationSupportDirectory();
+    final secureDir = Directory('${cacheDir.path}/.memguard');
+    await secureDir.create(recursive: true);
+
+    final resolved = await secureDir.resolveSymbolicLinks();
+    if (!resolved.startsWith(cacheDir.path)) {
+      throw Exception('Symlink attack detected');
+    }
+
+    final chmod = await Process.run('chmod', ['700', secureDir.path]);
+    if (chmod.exitCode != 0) {
+      throw Exception('chmod failed: ${chmod.stderr}');
+    }
+
+    if (_showLog) {
+      FastLog.i('📚 Linux Directory using: getApplicationSupportDirectory');
+    }
+
+    return secureDir;
   }
 
   void _freeRustString(Pointer<Utf8> ptr) {

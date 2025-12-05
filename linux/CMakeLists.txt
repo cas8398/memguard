@@ -1,0 +1,1 @@
+install(FILES libmemguard_ffi.so DESTINATION "lib")

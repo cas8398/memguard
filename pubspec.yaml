@@ -1,6 +1,6 @@
 name: memguard
 description: "Flutter library that safeguards memory, resources, and secure storage with Rust-backed performance."
-version: 2.1.3
+version: 2.1.4
 homepage: https://github.com/cas8398/memguard
 repository: https://github.com/cas8398/memguard
 issue_tracker: https://github.com/cas8398/memguard/issues
@@ -11,12 +11,13 @@ environment:
   flutter: ">=3.3.0"
 
 dependencies:
+  crypto: ^3.0.7
   ffi: ^2.1.3
   flutter:
     sdk: flutter
   flutter_fastlog: ^0.2.0
-
-  memguard_core: ^2.1.3
+  memguard_core: ^2.1.4
+  path_provider: ^2.1.5
 
 dev_dependencies:
   flutter_test:
