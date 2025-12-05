@@ -18,6 +18,8 @@ example/.dart_tool/
 .flutter-plugins-dependencies
 example/.flutter-plugins
 example/.flutter-plugins-dependencies
+# Flutter ephemeral
+linux/flutter/ephemeral/
 
 
 # Logs
